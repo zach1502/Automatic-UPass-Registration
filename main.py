@@ -73,6 +73,13 @@ class UPass:
         self.data['compass-card-number'] = input("Enter your compass card number: ")
         self.data['compass-card-cvn'] = input("Enter your compass card cvn: ")
 
+        with open("data.pkl", "wb") as file:
+            pkl.dump(self.data, file)
+
+    def load_data_from_pkl(self):
+        with open("data.pkl", "rb") as file:
+            self.data = pkl.load(file)
+
     def go_to_upass_page(self):
         # Go to upass page
         print("Going to U-Pass page...")
@@ -131,7 +138,7 @@ class UPass:
             self.browser.find_element(by="css selector", value="button.positive").click()
             self.browser.switch_to.default_content()
         else:
-            print("Sorry, your school is not supported yet. Please open an issue on GitHub.")
+            print("Sorry, your school is not supported yet. If you think this is an error, please open an issue on GitHub.")
             self.browser.quit()
             sys.exit()
 
@@ -155,26 +162,22 @@ class UPass:
                 EC.presence_of_element_located((By.ID, "chk_1"))
             )
             self.browser.find_element(by="id", value="chk_1").click()
-        except ElementNotVisibleException:
-            raise ElementNotVisibleException("Could not find the checkbox. Perhaps you already applied for a U-Pass?")
-        except Exception as e:
-            # something unexpected happened
-            raise e
 
-        WebDriverWait(self.browser, 10).until(
-            EC.presence_of_element_located((By.ID, "requestButton"))
-        ).click()
+            WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located((By.ID, "requestButton"))
+            ).click()
+
+            return True
+
+        except Exception: # generic Exception because I'm lazy and well, it works
+            print("Failed to find radio button. Maybe you already registered for a U-Pass?")
+            return False
 
     def success(self):
         print("SUCCESS!!!")
         print("Browser will automatically close now!")
         time.sleep(2)
         self.browser.quit()
-    
-    def failed(self, msg = None):
-        print(msg if msg else "Failed to apply for U-Pass. Please try again.")
-        self.browser.quit()
-        sys.exit()
 
 
 if __name__ == "__main__":
@@ -186,7 +189,24 @@ if __name__ == "__main__":
     print("DO NOT CLOSE THE NEWLY OPENED BROWSER WINDOW. IT WILL CLOSE AUTOMATICALLY WHEN DONE. CLOSING THE BROWSER WILL CAUSE THE SCRIPT TO FAIL.")
 
     bot = UPass()
-    bot.get_data_from_user()
+    background_use = "n"
+
+    #check if pkl file exists
+    if(os.path.isfile("data.pkl")):
+        if(background_use):
+            user_wants_to_use_last_session_data = input("Do you want to use the last session's data? (y/n): ").lower()
+            if(user_wants_to_use_last_session_data == 'y'):
+                bot.load_data_from_pkl()
+            else:
+                bot.get_data_from_user()
+            
+            print("Do you want to run this script in the background?")
+            background_use = input("This script will not ask for your user details again for this session (y/n): ").lower()
+    else:
+        bot.get_data_from_user()
+        print("Do you want to run this script in the background?")
+        background_use = input("This script will not ask for your user details again for this session (y/n): ").lower()
+
     bot.go_to_upass_page()
     bot.select_school()
     bot.login_to_school()
@@ -197,5 +217,5 @@ if __name__ == "__main__":
     if(bot.check_if_compass_card_unlinked()):
         bot.handle_unlinked_compass_card()
 
-    bot.apply_for_upass()
-    bot.success()
+    if(bot.apply_for_upass()):
+        bot.success()
