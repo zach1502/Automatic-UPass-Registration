@@ -43,9 +43,13 @@ class UPass:
     def init_browser(self):
         driver_path = "chromedriver.exe"
         browser_path = self.find_browser()
-        while(not os.path.isfile(browser_path)):
+        while(browser_path):
             print("Finding browser automatically failed.")
             print("Follow the instructions on the GitHub page to manually enter the path to your browser.")
+            browser_path = input("Please enter the path to your Chrome executable (chrome.exe, etc.):\n ")
+
+        while(not os.path.isfile(browser_path)):
+            print("Invalid path. Please try again.")
             browser_path = input("Please enter the path to your Chrome executable (chrome.exe, etc.):\n ")
 
         option = webdriver.ChromeOptions()
