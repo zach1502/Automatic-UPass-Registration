@@ -41,7 +41,9 @@ A batchfile consists of a series of commands to be executed by a command line in
 
 ## Lines 1-3: Housekeeping
 @echo off -> turns off showing the commands being run
+
 cls -> CLear Screen
+
 pip install -r requirements.txt -> download the dependancies to run the python script
 
 ## Lines 4-end: Conditional Checks
