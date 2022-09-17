@@ -13,11 +13,12 @@ from selenium.webdriver.support.ui import Select
 class UPass:
     # Did I need to make it a class? No. but maybe it'll be useful for portability
     data = {
-    'school': 'sfu',
-    'school-login-username': 'zach1502',
-    'school-login-password': 'aStrongPasswordIHope?',
-    'compass-card-number': "123123123123123123",
-    'compass-card-cvn': "123",
+        'school': 'sfu',
+        'school-login-username': 'zach1502',
+        'school-login-password': 'aStrongPasswordIHope?',
+        'compass-card-number': "123123123123123123",
+        'compass-card-cvn': "123",
+        'mfa': 'n'
     }
 
     def __init__(self) -> None:
@@ -32,18 +33,19 @@ class UPass:
 
         if os.path.isfile(default_chrome_path):
             return default_chrome_path
-        elif os.path.isfile(default_brave_path):
+
+        if os.path.isfile(default_brave_path):
             return default_brave_path
+
         # elif os.path.isfile(default_edge_path):
         #     return default_edge_path
-        else:
-            # ask user to manually enter path
-            return None
+        # ask user to manually enter path
+        return None
 
     def init_browser(self):
         driver_path = "chromedriver.exe"
         browser_path = self.find_browser()
-        while(browser_path):
+        while(browser_path is None):
             print("Finding browser automatically failed.")
             print("Follow the instructions on the GitHub page to manually enter the path to your browser.")
             browser_path = input("Please enter the path to your Chrome executable (chrome.exe, etc.):\n ")
@@ -66,6 +68,7 @@ class UPass:
         self.data['school'] = input("Enter your school (sfu, ubc, etc.): ").lower()
         self.data['school-login-username'] = input("Enter your school login username: ")
         self.data['school-login-password'] = input("Enter your school login password: ")
+        self.data['mfa'] = input("Do you have MFA enabled on your school account? (y/n): ").lower()
         print("If your compass card is already linked, there should be no need to fill the following out.")
         self.data['compass-card-number'] = input("Enter your compass card number: ")
         self.data['compass-card-cvn'] = input("Enter your compass card cvn: ")
@@ -102,6 +105,8 @@ class UPass:
             sys.exit()
 
     def check_for_mfa(self):
+        # wait for the login page to go away
+        time.sleep(1)
         return "Authentication" in self.browser.page_source
 
     def handle_mfa(self):
@@ -115,15 +120,15 @@ class UPass:
         if(self.data['school'] == 'sfu'):
             print("MAKE SURE YOU ENTER THE MFA CODE CORRECTLY!")
             mfaCode = input("Enter MFA code: ")
-            self.browser.switch_to.frame(self.browser.find_element_by_tag_name("iframe"))
+            self.browser.switch_to.frame(self.browser.find_element(by="tag name", value="iframe"))
             self.browser.find_element(by="id", value="totpCode").send_keys(mfaCode)
             #self.browser.find_element_by_tag_name("button").click() ???? Doesn't work????
             self.browser.find_elements_by_css_selector(".submit")[0].click()
             self.browser.switch_to.default_content()
         elif(self.data['school'] == 'ubc'):
-            self.browser.switch_to.frame(self.browser.find_element_by_tag_name("iframe"))
+            self.browser.switch_to.frame(self.browser.find_element(by="tag name", value="iframe"))
             # probably will call first
-            self.browser.find_elements_by_css_selector("button.positive")[0].click()
+            self.browser.find_element(by="css selector", value="button.positive").click()
             self.browser.switch_to.default_content()
         else:
             print("Sorry, your school is not supported yet. Please open an issue on GitHub.")
@@ -146,6 +151,9 @@ class UPass:
         print("Applying for U-Pass...")
         # find and select radio button
         try:
+            WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located((By.ID, "chk_1"))
+            )
             self.browser.find_element(by="id", value="chk_1").click()
         except ElementNotVisibleException:
             raise ElementNotVisibleException("Could not find the checkbox. Perhaps you already applied for a U-Pass?")
@@ -183,7 +191,7 @@ if __name__ == "__main__":
     bot.select_school()
     bot.login_to_school()
 
-    if(bot.check_for_mfa()):
+    if(bot.data['mfa'] == 'y'):
         bot.handle_mfa()
 
     if(bot.check_if_compass_card_unlinked()):
