@@ -2,6 +2,7 @@ import sys
 import time
 import os
 import pickle as pkl # save last used browser (if manually inputted)
+import pyotp
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -18,7 +19,9 @@ class UPass:
         'school-login-password': 'aStrongPasswordIHope?',
         'compass-card-number': "123123123123123123",
         'compass-card-cvn': "123",
-        'mfa': 'n'
+        'mfa': 'n',
+        'mfa_secret': '',
+        'mfa_code': ''
     }
 
     def __init__(self) -> None:
@@ -69,6 +72,8 @@ class UPass:
         self.data['school-login-username'] = input("Enter your school login username: ")
         self.data['school-login-password'] = input("Enter your school login password: ")
         self.data['mfa'] = input("Do you have MFA enabled on your school account? (y/n): ").lower()
+        if(self.data['mfa'] == 'y'):
+            self.data['mfa_secret'] = input("Paste your 16-char MFA secret (hit Enter if you don't have this)")
         print("If your compass card is already linked, there should be no need to fill the following out.")
         self.data['compass-card-number'] = input("Enter your compass card number: ")
         self.data['compass-card-cvn'] = input("Enter your compass card cvn: ")
@@ -117,20 +122,30 @@ class UPass:
         return "Authentication" in self.browser.page_source
 
     def handle_mfa(self):
-        print()
-        print()
-        print("#####################################")
-        print("Additional Authentication Required!!!")
-        print("#####################################")
-        print()
-        print()
         if(self.data['school'] == 'sfu'):
             print("MAKE SURE YOU ENTER THE MFA CODE CORRECTLY!")
-            mfaCode = input("Enter MFA code: ")
+            
+            if(self.data['mfa_secret'] == ''):
+                # mfa_secret not given -> get mfa_code from user
+                print()
+                print()
+                print("#####################################")
+                print("Additional Authentication Required!!!")
+                print("#####################################")
+                print()
+                print()
+                self.data['mfa_code'] = input("Enter MFA code: ")
+            else:
+                # mfa_secret given -> generate mfa_code automatically
+                # possible (unlikely) bug : mfa_code updates between storing in self.data and send_keys
+                self.data['mfa_code'] = pyotp.TOTP(self.data['mfa_secret']).now()
+            
             self.browser.switch_to.frame(self.browser.find_element(by="tag name", value="iframe"))
-            self.browser.find_element(by="id", value="totpCode").send_keys(mfaCode)
+            self.browser.find_element(by="id", value="totpCode").send_keys(self.data['mfa_code'])
             #self.browser.find_element_by_tag_name("button").click() ???? Doesn't work????
-            self.browser.find_elements_by_css_selector(".submit")[0].click()
+            # self.browser.find_elements_by_css_selector(".submit")[0].click()
+            # for conventions see https://selenium-python.readthedocs.io/locating-elements.html
+            self.browser.find_elements(By.CSS_SELECTOR, '.submit')[0].click()
             self.browser.switch_to.default_content()
         elif(self.data['school'] == 'ubc'):
             self.browser.switch_to.frame(self.browser.find_element(by="tag name", value="iframe"))
